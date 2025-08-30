@@ -1,0 +1,423 @@
+openapi: 3.0.0
+info:
+  title: Cliniccare API
+  version: 1.0.0
+  description: >
+    Cliniccare API documentation for the Medicine system.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /api/health:
+    get:
+      summary: Check server status
+      description: Endpoint to check if the server is running properly
+      tags:
+        - Test
+      responses:
+        '200':
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Server is Running."
+                  status:
+                    type: boolean
+                    example: true
+
+  /api/specialties:
+    get:
+      tags: [Specialties]
+      summary: ดึงรายการสาขาแพทย์ทั้งหมด
+      description: คืนข้อมูลเป็นอาเรย์ของสาขาแพทย์ เรียงตาม `id` จากน้อยไปมาก
+      responses:
+        '200':
+          description: สำเร็จ — คืนรายการสาขาแพทย์
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    code:
+                      type: string
+                      example: "CARD"
+                    name_th:
+                      type: string
+                      example: "โรคหัวใจ"
+                    name_en:
+                      type: string
+                      example: "Cardiology"
+                  required: [id, code, name_th, name_en]
+              examples:
+                success:
+                  summary: ตัวอย่างข้อมูล
+                  value:
+                    - id: 1
+                      code: "CARD"
+                      name_th: "โรคหัวใจ"
+                      name_en: "Cardiology"
+                    - id: 2
+                      code: "DERM"
+                      name_th: "ผิวหนัง"
+                      name_en: "Dermatology"
+        '500':
+          description: เซิร์ฟเวอร์ผิดพลาด — โหลดข้อมูลไม่สำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Failed to load specialties
+
+  /api/login:
+    post:
+      tags: [Auth]
+      summary: เข้าสู่ระบบ (ผู้ป่วย/แพทย์/แอดมิน)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: secret123
+              required: [email, password]
+            examples:
+              valid:
+                value:
+                  email: user@example.com
+                  password: secret123
+      responses:
+        '200':
+          description: สำเร็จ — ส่งข้อมูลผู้ใช้ที่ล็อกอินได้
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: integer
+                    example: 42
+                  role:
+                    type: string
+                    description: บทบาทผู้ใช้
+                    enum: [patient, doctor, admin]
+                    example: patient
+                  firstName:
+                    type: string
+                    example: Thanarat
+                  lastName:
+                    type: string
+                    example: Nimman
+                  email:
+                    type: string
+                    format: email
+                    example: user@example.com
+                  message:
+                    type: string
+                    example: เข้าสู่ระบบสำเร็จ
+                required: [id, role, firstName, lastName, email]
+              examples:
+                success:
+                  value:
+                    id: 42
+                    role: patient
+                    firstName: Thanarat
+                    lastName: Nimman
+                    email: user@example.com
+                    message: เข้าสู่ระบบสำเร็จ
+        '400':
+          description: ขาดพารามิเตอร์ (เช่น ไม่กรอกอีเมลหรือรหัสผ่าน)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: กรอกอีเมลและรหัสผ่าน
+              examples:
+                missingFields:
+                  value:
+                    message: กรอกอีเมลและรหัสผ่าน
+        '401':
+          description: อีเมลหรือรหัสผ่านไม่ถูกต้อง
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: อีเมลหรือรหัสผ่านไม่ถูกต้อง
+              examples:
+                invalidCreds:
+                  value:
+                    message: อีเมลหรือรหัสผ่านไม่ถูกต้อง
+        '500':
+          description: เซิร์ฟเวอร์ผิดพลาด
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: เข้าสู่ระบบไม่สำเร็จ
+              examples:
+                serverError:
+                  value:
+                    message: เข้าสู่ระบบไม่สำเร็จ
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: ดึงข้อมูลผู้ใช้ตาม ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: รหัสผู้ใช้ (จำนวนเต็มบวก)
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: สำเร็จ — โครงสร้างผลลัพธ์ต่างกันตาม role
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - title: PatientProfile
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      id:        { type: integer, example: 10 }
+                      role:      { type: string, enum: [patient], example: patient }
+                      firstName: { type: string, example: "Narin" }
+                      lastName:  { type: string, example: "P." }
+                      email:     { type: string, format: email, example: "narin@example.com" }
+                      phone:     { type: string, example: "0810000000" }
+                      birthDate: { type: string, format: date, example: "2000-01-15" }
+                      gender:    { type: string, example: "female" }
+                      address:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          line1:      { type: string, example: "99/1" }
+                          district:   { type: string, example: "เมือง" }
+                          province:   { type: string, example: "เชียงใหม่" }
+                          postalCode: { type: string, example: "50000" }
+                    required: [id, role, firstName, lastName, email]
+                  - title: DoctorProfile
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      id:        { type: integer, example: 22 }
+                      role:      { type: string, enum: [doctor], example: doctor }
+                      firstName: { type: string, example: "Somsak" }
+                      lastName:  { type: string, example: "M." }
+                      email:     { type: string, format: email, example: "doc@example.com" }
+                      phone:     { type: string, example: "0820000000" }
+                      specialtyId:
+                        type: integer
+                        nullable: true
+                        example: 3
+                    required: [id, role, firstName, lastName, email]
+              examples:
+                patientExample:
+                  value:
+                    id: 10
+                    role: patient
+                    firstName: "Narin"
+                    lastName: "P."
+                    email: "narin@example.com"
+                    phone: "0810000000"
+                    birthDate: "2000-01-15"
+                    gender: "female"
+                    address:
+                      line1: "99/1"
+                      district: "เมือง"
+                      province: "เชียงใหม่"
+                      postalCode: "50000"
+                doctorExample:
+                  value:
+                    id: 22
+                    role: doctor
+                    firstName: "Somsak"
+                    lastName: "M."
+                    email: "doc@example.com"
+                    phone: "0820000000"
+                    specialtyId: 3
+        '400':
+          description: พารามิเตอร์ไม่ถูกต้อง (เช่น id ไม่ใช่ตัวเลขบวก)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: invalid id }
+              examples:
+                invalidId: { value: { message: "invalid id" } }
+        '404':
+          description: ไม่พบผู้ใช้
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: not found }
+              examples:
+                notFound: { value: { message: "not found" } }
+        '500':
+          description: เซิร์ฟเวอร์ผิดพลาด
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: failed to load profile }
+              examples:
+                serverError: { value: { message: "failed to load profile" } }
+
+    put:
+      tags: [Users]
+      summary: อัปเดตโปรไฟล์ผู้ใช้ตามบทบาท
+      description: |
+        - ต้องส่ง `role` เพื่อบอกชนิดการอัปเดต  
+        - `patient`: อัปเดต first/last/phone/birthDate และ address (server เพิกเฉย `gender`)  
+        - `doctor`: อัปเดต first/last/phone และ **ต้องส่ง** `specialtyId`
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: รหัสผู้ใช้ (จำนวนเต็มบวก)
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - title: UpdatePatient
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    role:       { type: string, enum: [patient] }
+                    firstName:  { type: string, nullable: true, example: "Narin" }
+                    lastName:   { type: string, nullable: true, example: "P." }
+                    phone:      { type: string, nullable: true, example: "0811111111" }
+                    birthDate:  { type: string, format: date, nullable: true, example: "2000-01-15" }
+                    gender:
+                      type: string
+                      nullable: true
+                      description: จะถูกเพิกเฉยในการอัปเดตฝั่งเซิร์ฟเวอร์
+                    address:
+                      type: object
+                      nullable: true
+                      additionalProperties: false
+                      properties:
+                        line1:      { type: string, nullable: true, example: "99/1" }
+                        district:   { type: string, nullable: true, example: "เมือง" }
+                        province:   { type: string, nullable: true, example: "เชียงใหม่" }
+                        postalCode: { type: string, nullable: true, example: "50000" }
+                  required: [role]
+                - title: UpdateDoctor
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    role:       { type: string, enum: [doctor] }
+                    firstName:  { type: string, nullable: true, example: "Somsak" }
+                    lastName:   { type: string, nullable: true, example: "M." }
+                    phone:      { type: string, nullable: true, example: "0820000000" }
+                    specialtyId:
+                      type: integer
+                      description: ต้องส่ง (จำเป็นสำหรับ role=doctor)
+                  required: [role, specialtyId]
+            examples:
+              updatePatient:
+                value:
+                  role: patient
+                  firstName: "Narin"
+                  phone: "0811111111"
+                  birthDate: "2000-01-15"
+                  address:
+                    line1: "99/1"
+                    district: "เมือง"
+                    province: "เชียงใหม่"
+                    postalCode: "50000"
+              updateDoctor:
+                value:
+                  role: doctor
+                  firstName: "Somsak"
+                  phone: "0820000000"
+                  specialtyId: 3
+      responses:
+        '200':
+          description: บันทึกสำเร็จ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+              examples:
+                ok: { value: { ok: true } }
+        '400':
+          description: คำขอไม่ถูกต้อง (เช่น invalid id / invalid role / ไม่ส่ง specialtyId เมื่อ role=doctor)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: invalid role
+              examples:
+                invalidId:        { value: { message: "invalid id" } }
+                invalidRole:      { value: { message: "invalid role" } }
+                missingSpecialty: { value: { message: "specialtyId required" } }
+        '500':
+          description: เซิร์ฟเวอร์ผิดพลาดขณะอัปเดต
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: update failed }
+              examples:
+                serverError: { value: { message: "update failed" } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: boolean
